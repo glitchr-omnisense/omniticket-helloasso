@@ -2,6 +2,10 @@
 
 namespace Omniticket\HelloAsso;
 
+use Omnisense\Contracts\Policy\Backoff;
+use Omnisense\Contracts\Policy\DeclaresUsagePolicyInterface;
+use Omnisense\Contracts\Policy\PolicyGuard;
+use Omnisense\Contracts\Policy\UsagePolicy;
 use Omniticket\AttendeeListInterface;
 use Omniticket\Capabilities;
 use Omniticket\EventCatalogInterface;
@@ -28,8 +32,13 @@ use Symfony\Contracts\HttpClient\HttpClientInterface;
  * POST /oauth2/token (client credentials). An event's id is its form slug.
  * Reading only.
  */
-final class HelloAssoProvider implements EventCatalogInterface, AttendeeListInterface, TicketCheckInterface
+final class HelloAssoProvider implements EventCatalogInterface, AttendeeListInterface, TicketCheckInterface, DeclaresUsagePolicyInterface
 {
+    /** HelloAsso's usage policy, as its terms read on the day it says (provenance.verifiedAt). */
+    public const POLICY = __DIR__.'/policy.json';
+
+    private static ?UsagePolicy $policy = null;
+
     private const PAGE = 100;
 
     private readonly JsonApi $api;
@@ -44,8 +53,10 @@ final class HelloAssoProvider implements EventCatalogInterface, AttendeeListInte
         #[\SensitiveParameter] private readonly string $clientSecret,
         private readonly string $organization,
         private readonly string $url = 'https://api.helloasso.com',
+        ?Backoff $backoff = null,
+        private readonly ?PolicyGuard $tokens = null,
     ) {
-        $this->api = new JsonApi($http, 'HelloAsso');
+        $this->api = new JsonApi($http, 'HelloAsso', $backoff);
     }
 
     public function getName(): string
@@ -58,6 +69,11 @@ final class HelloAssoProvider implements EventCatalogInterface, AttendeeListInte
         return 'HelloAsso';
     }
 
+    public function usagePolicy(): UsagePolicy
+    {
+        return self::$policy ??= UsagePolicy::fromFile(self::POLICY);
+    }
+
     public function capabilities(): Capabilities
     {
         return new Capabilities(
@@ -68,6 +84,7 @@ final class HelloAssoProvider implements EventCatalogInterface, AttendeeListInte
             widget: true,
             terms: ['https://dev.helloasso.com', 'https://www.helloasso.com/cgu'],
             limits: ['no rate figure in what was read: keep calls moderate, cache the catalogue, renew the token only when it expires (30 minutes)'],
+            policy: $this->usagePolicy(),
         );
     }
 
@@ -209,7 +226,9 @@ final class HelloAssoProvider implements EventCatalogInterface, AttendeeListInte
     private function token(): string
     {
         if (null === $this->token || time() >= $this->expires) {
-            $answer = $this->api->request('POST', $this->url.'/oauth2/token', ['body' => ['grant_type' => 'client_credentials', 'client_id' => $this->clientId, 'client_secret' => $this->clientSecret]], 'an access token');
+            // The authentication API's own limits (policy.json, operation "token"), counted apart from the contract's calls.
+            $request = fn () => $this->api->request('POST', $this->url.'/oauth2/token', ['body' => ['grant_type' => 'client_credentials', 'client_id' => $this->clientId, 'client_secret' => $this->clientSecret]], 'an access token');
+            $answer = null === $this->tokens ? $request() : $this->tokens->call('token', $request);
             $this->token = $answer->string('access_token') ?? throw new ProviderException('HelloAsso gave no access token.');
             $this->expires = time() + max(60, ($answer->int('expires_in') ?? 1800) - 60);
         }

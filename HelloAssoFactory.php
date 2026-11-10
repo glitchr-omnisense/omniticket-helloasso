@@ -2,6 +2,7 @@
 
 namespace Omniticket\HelloAsso;
 
+use Omnisense\Contracts\Policy\UsagePolicy;
 use Omniticket\Config;
 use Omniticket\Exception\InvalidConfigException;
 use Omniticket\ProviderFactory;
@@ -39,6 +40,8 @@ final class HelloAssoFactory extends ProviderFactory
             (string) $c->string('client_secret'),
             (string) $c->string('organization'),
             rtrim($c->string('url') ?? 'https://api.helloasso.com', '/'),
+            backoff: $c->backoff(),
+            tokens: $c->guard(UsagePolicy::fromFile(HelloAssoProvider::POLICY)),
         );
     }
 }

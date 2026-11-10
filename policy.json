@@ -1,0 +1,67 @@
+{
+    "$schema": "https://github.com/glitchr-omnisense/contracts/blob/1.x/resources/usage-policy.schema.json",
+    "provider": "helloasso",
+    "rateLimits": [
+        {
+            "max": 10,
+            "window": "second",
+            "every": 10,
+            "scope": "key",
+            "operations": [
+                "token"
+            ],
+            "note": "\"10 appels toutes les 10 secondes\" on the authentication API (POST /oauth2/token)."
+        },
+        {
+            "max": 20,
+            "window": "minute",
+            "every": 10,
+            "scope": "key",
+            "operations": [
+                "token"
+            ],
+            "note": "\"20 appels toutes les 10 minutes\" on the authentication API."
+        },
+        {
+            "max": 50,
+            "window": "hour",
+            "scope": "key",
+            "operations": [
+                "token"
+            ],
+            "note": "\"50 appels toutes les heures\" on the authentication API."
+        }
+    ],
+    "rights": {
+        "commercial": "unknown",
+        "openSourceRequired": null,
+        "caching": {
+            "permission": "unknown",
+            "maxTtl": null
+        },
+        "storage": "unknown",
+        "redistribution": "unknown",
+        "attribution": {
+            "required": false,
+            "text": null,
+            "url": null,
+            "where": []
+        },
+        "licence": null
+    },
+    "requirements": {
+        "key": true,
+        "userAgent": {
+            "required": false,
+            "pattern": null
+        }
+    },
+    "provenance": {
+        "terms": "https://www.helloasso.com/cgu",
+        "policy": "https://dev.helloasso.com/docs/limitation-api",
+        "verifiedAt": "2026-11-10",
+        "declaredBy": "maintainer",
+        "contact": null,
+        "notes": "The figures are the authentication API's (dev.helloasso.com/docs/limitation-api): \"token\" is the provider's own access token request, guarded inside its operations (Config::guard()); the token is kept 30 minutes per provider instance, as HelloAsso asks. The page sets no figure for the other endpoints (organizations, forms, orders, items): unknown, and a 429 holds the calls. The general terms (helloasso.com/cgu) answered 403 on 2026-11-10 and the developer pages state no rights: commercial use, caching, storage, redistribution and attribution unknown."
+    }
+}

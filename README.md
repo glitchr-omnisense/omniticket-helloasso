@@ -39,6 +39,16 @@ MIT), it brings its own HTTP stack (Guzzle, ext-curl) where the family injects t
 client, and its namespace is the generator's generic `OpenAPI\Client`, which collides with any
 other generated client. Its model documentation is what the tests' answers follow.
 
+## Usage policy
+
+Declared as data in `policy.json` (omnisense/contracts' schema), read on 2026-11-10 at
+[limitation-api](https://dev.helloasso.com/docs/limitation-api): the authentication API - the
+access token, the operation `token` - 10 calls every 10 seconds, 20 every 10 minutes, 50 an hour;
+the token is kept 30 minutes per provider. No figure for the other endpoints, and the general terms
+answered 403: their rights unknown. Through omniticket's registry every call is checked against it,
+the token requests by their own limits, a 429 holds the next calls, and a site may tighten it,
+never loosen it.
+
 ## Verified, and not
 
 - Verified (the core's harness, PHP 8.4): the token (asked once, kept), events and their status,

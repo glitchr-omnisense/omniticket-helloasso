@@ -114,6 +114,16 @@ provider (Omniticket\HelloAsso\HelloAssoProvider) does not read attendees change
 - `attendees()` with a date: `NotSupportedException`, before any call.
 - A network failure: `UnreachableException`.
 
+## Usage policy
+
+Declared as data in `policy.json` (omnisense/contracts' schema), read on 2026-11-10 at
+[limitation-api](https://dev.helloasso.com/docs/limitation-api): the authentication API - the
+access token, the operation `token` - 10 calls every 10 seconds, 20 every 10 minutes, 50 an hour;
+the token is kept 30 minutes per provider. No figure for the other endpoints, and the general terms
+answered 403: their rights unknown. Through omniticket's registry every call is checked against it,
+the token requests by their own limits, a 429 holds the next calls, and a site may tighten it,
+never loosen it.
+
 ## Verified, and not
 
 `Tests/HelloAssoProviderTest.php`, against answers composed from the field names of HelloAsso's
