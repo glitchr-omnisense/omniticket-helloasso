@@ -110,6 +110,32 @@ final class PolicyTest extends TestCase
         self::assertCount(2, array_filter($http->requests, static fn (array $r) => 'POST' === $r['method']));
     }
 
+    public function testEachFurtherPageIsCountedAndOneOverTheLimitNeverRequested(): void
+    {
+        $page = static fn (int $from, int $count, int $index): string => (string) json_encode(['data' => array_map(static fn (int $i) => ['id' => $i, 'qrCode' => 'Q'.$i, 'state' => 'Processed'], range($from, $from + $count - 1)), 'pagination' => ['pageSize' => 100, 'pageIndex' => $index, 'totalPages' => 2, 'continuationToken' => 'next-'.$index]]);
+        $http = new RecordedHttpClient(static function (string $method, string $url, array $options) use ($page): array {
+            if (str_ends_with($url, '/oauth2/token')) {
+                return [200, (string) file_get_contents(__DIR__.'/Fixtures/token.json')];
+            }
+            $query = \is_array($options['query'] ?? null) ? $options['query'] : [];
+
+            return [200, isset($query['continuationToken']) ? $page(101, 20, 2) : $page(1, 100, 1)];
+        });
+        $registry = self::registry($http, ['rateLimits' => [['max' => 1, 'window' => 'day', 'operations' => ['attendees']]]]);
+
+        $read = 0;
+        try {
+            foreach ($registry->attendees('box')->attendees('x') as $attendee) {
+                ++$read;
+            }
+            self::fail('The second page went out over the limit.');
+        } catch (UsageLimitReachedException $e) {
+            self::assertSame('1/day/application/attendees', $e->limit?->id());
+        }
+        self::assertSame(100, $read);
+        self::assertCount(1, array_filter($http->requests, static fn (array $r) => !str_ends_with($r['url'], '/oauth2/token')), 'the second page never requested');
+    }
+
     /** @param array<string, mixed> $policy */
     private static function registry(RecordedHttpClient $http, array $policy = []): Registry
     {

@@ -90,7 +90,7 @@ final class HelloAssoProvider implements EventCatalogInterface, AttendeeListInte
 
     public function events(EventQuery $query = new EventQuery()): iterable
     {
-        return $query->filter($this->paged('/forms', ['formTypes' => 'Event'], 'the events', fn (Data $form) => $this->toEvent($form)));
+        return $query->filter($this->paged('events', '/forms', ['formTypes' => 'Event'], 'the events', fn (Data $form) => $this->toEvent($form)));
     }
 
     public function event(string $id): Event
@@ -119,7 +119,7 @@ final class HelloAssoProvider implements EventCatalogInterface, AttendeeListInte
             throw NotSupportedException::capability($this, 'helloasso', 'read attendees changed since a moment (its items have no such filter)');
         }
 
-        return $this->paged('/forms/Event/'.rawurlencode($eventId).'/items', ['withDetails' => 'true'], 'the registrations of event "'.$eventId.'"', static fn (Data $item) => new Attendee(
+        return $this->paged('attendees', '/forms/Event/'.rawurlencode($eventId).'/items', ['withDetails' => 'true'], 'the registrations of event "'.$eventId.'"', static fn (Data $item) => new Attendee(
             (string) $item->string('id'),
             $eventId,
             $item->string('qrCode'),
@@ -194,7 +194,10 @@ final class HelloAssoProvider implements EventCatalogInterface, AttendeeListInte
     }
 
     /**
-     * Every page of a list, by continuation token.
+     * Every page of a list, by continuation token: the first as the
+     * registry's call of $operation counts it, each further one through the
+     * provider's guard (the one its token requests go through), checked
+     * before it is requested.
      *
      * @template T
      *
@@ -203,11 +206,12 @@ final class HelloAssoProvider implements EventCatalogInterface, AttendeeListInte
      *
      * @return \Generator<int, T>
      */
-    private function paged(string $path, array $query, string $what, \Closure $map): \Generator
+    private function paged(string $operation, string $path, array $query, string $what, \Closure $map): \Generator
     {
         $token = null;
         do {
-            $page = $this->get($path, $query + ['pageSize' => (string) self::PAGE] + (null !== $token ? ['continuationToken' => $token] : []), $what);
+            $fetch = fn (): Data => $this->get($path, $query + ['pageSize' => (string) self::PAGE] + (null !== $token ? ['continuationToken' => $token] : []), $what);
+            $page = null === $token || null === $this->tokens ? $fetch() : $this->tokens->call($operation, $fetch);
             $data = $page->list('data');
             foreach ($data as $line) {
                 yield $map($line);
