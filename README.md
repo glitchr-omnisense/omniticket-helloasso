@@ -4,6 +4,39 @@
 host: an association's event forms with their tiers, the registrations of an event, and a ticket's
 QR code checked among them. Reading only.
 
+## Install and a first call
+
+```sh
+composer require omniticket/helloasso
+```
+
+No account for this first call: HelloAsso's answers (its access token, then the association's
+event forms) are recorded (`Omniticket\Testing\RecordedHttpClient` answers in place of the API), so
+nothing leaves the process. A real call needs the association's HelloAsso account: the client id
+and secret of its back office's API section (the sandbox has its own, at api.helloasso-sandbox.com).
+
+```php
+<?php
+
+require __DIR__.'/vendor/autoload.php';
+
+use Omniticket\HelloAsso\HelloAssoFactory;
+use Omniticket\Testing\RecordedHttpClient;
+
+// HelloAsso's answers, recorded: nothing sent. HttpClient::create() (symfony/http-client) for a real call.
+$http = RecordedHttpClient::routes([
+    'POST /oauth2/token' => '{"access_token": "recorded", "token_type": "bearer", "expires_in": 1800}',
+    'GET /forms' => '{"data": [{"title": "Bal de printemps", "formSlug": "bal-de-printemps", "formType": "Event", "state": "Public", "currency": "EUR", "startDate": "2036-04-18T20:00:00+02:00", "endDate": "2036-04-19T01:00:00+02:00", "url": "https://www.helloasso.com/associations/example-association/evenements/bal-de-printemps", "organizationSlug": "example-association"}], "pagination": {"totalPages": 1, "pageIndex": 1}}',
+]);
+$helloasso = (new HelloAssoFactory($http))->create(['client_id' => 'recorded', 'client_secret' => 'recorded', 'organization' => 'example-association']);
+
+foreach ($helloasso->events() as $event) {
+    echo $event->title, ' ', $event->start?->format('d/m/Y H:i'), ' ', $event->url, "\n";   // Bal de printemps 18/04/2036 20:00 https://www.helloasso.com/...
+}
+```
+
+With your credentials, through the family's registry:
+
 ```php
 use Omniticket\HelloAsso\HelloAssoFactory;
 use Omniticket\Registry;
